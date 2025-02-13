@@ -8,16 +8,16 @@ public class Enemy : MonoBehaviour
     private int currentHealth;
     public float attackInterval = 3f;
     public int damage = 10;
+    public int moneyReward = 1000; // จำนวนเงินที่ได้รับเมื่อล้มศัตรู
 
     public Image healthBar;
     public Color hitColor = new Color(1, 0, 0, 0.5f);
     private Color originalColor;
     private SpriteRenderer spriteRenderer;
 
-    public GameObject newEnemyPrefab; // สร้างตัวแปรเพื่อเก็บ prefab ของศัตรูใหม่
-    public float spawnDelay = 0.5f; // เวลาในการเกิดศัตรูใหม่
+    public GameObject newEnemyPrefab; // Prefab ของศัตรูใหม่
 
-    private bool isDead = false; // ตัวแปรตรวจสอบสถานะการตายของศัตรู
+    private bool isDead = false; // ตรวจสอบว่าสิ่งนี้ตายไปแล้วหรือไม่
 
     private void Start()
     {
@@ -32,13 +32,13 @@ public class Enemy : MonoBehaviour
         while (currentHealth > 0)
         {
             yield return new WaitForSeconds(attackInterval);
-            Debug.Log("Enemy attacks Player!"); // แทนที่ด้วยโค้ดโจมตี Player จริง ๆ
+            Debug.Log("Enemy attacks Player!");
         }
     }
 
     public void TakeDamage(int amount)
     {
-        if (isDead) return; // ถ้าตายแล้วไม่ให้ทำอะไร
+        if (isDead) return; // ถ้าตายแล้ว ไม่ให้ทำอะไรต่อ
         currentHealth -= amount;
         UpdateHealthBar();
         StartCoroutine(FlashRed());
@@ -64,33 +64,66 @@ public class Enemy : MonoBehaviour
     private void Die()
     {
         Debug.Log("Enemy died!");
-        isDead = true; // ทำให้สถานะของศัตรูเป็นตายแล้ว
-        // ให้ผู้เล่นได้รับเงิน 1000
-        Player.Instance.AddMoney(1000); // คุณต้องสร้างสคริปต์ Player ที่มีเมธอด AddMoney()
+        isDead = true;
+
+        // ให้ผู้เล่นได้รับเงิน (เพิ่มขึ้นนิดหน่อยในแต่ละครั้ง)
+        Player.Instance.AddMoney(moneyReward);
+        moneyReward += 200; // เงินเพิ่มขึ้นเรื่อย ๆ ในแต่ละรอบ
+
+        // ตำแหน่งของศัตรูที่ตาย
+        Vector3 spawnPosition = transform.position;
+
         Destroy(gameObject); // ทำลายตัวศัตรูเก่า
 
-        // สร้างศัตรูใหม่
-        StartCoroutine(SpawnNewEnemy());
+        // สร้างศัตรูใหม่ที่ตำแหน่งเดิม
+        SpawnNewEnemy(spawnPosition);
     }
 
-    private IEnumerator SpawnNewEnemy()
+    private void SpawnNewEnemy(Vector3 position)
     {
         Debug.Log("Spawning new enemy...");
 
-        yield return new WaitForSeconds(spawnDelay); // รอ 0.5 วินาที
-
-        // สร้างศัตรูใหม่
-        GameObject newEnemy = Instantiate(newEnemyPrefab, transform.position + new Vector3(2, 0, 0), Quaternion.identity); // สร้างที่ตำแหน่งที่ต้องการ
+        // สร้างศัตรูใหม่ที่ตำแหน่งเดิม
+        GameObject newEnemy = Instantiate(newEnemyPrefab, position, Quaternion.identity);
         Debug.Log("New enemy spawned at position: " + newEnemy.transform.position);
 
-        // กำหนดค่าหลอดเลือดให้เป็นค่าสูงสุดเต็ม (healthBar)
+        // กำหนดค่าของศัตรูใหม่
         Enemy newEnemyScript = newEnemy.GetComponent<Enemy>();
-        newEnemyScript.maxHealth = maxHealth;  // เลือดเท่ากับตัวแรก
-        newEnemyScript.currentHealth = maxHealth; // เลือดเท่ากับตัวแรก
-        newEnemyScript.healthBar.fillAmount = 1.0f; // ทำให้เลือดเต็ม 100%
+        newEnemyScript.maxHealth = maxHealth + 10;  // เพิ่มเลือดขึ้นเล็กน้อย
+        newEnemyScript.currentHealth = newEnemyScript.maxHealth; // ให้เลือดเต็ม
+        newEnemyScript.healthBar.fillAmount = 1.0f;
+        newEnemyScript.damage = damage + 2; // เพิ่มดาเมจนิดหน่อย
+        newEnemyScript.moneyReward = moneyReward; // กำหนดเงินรางวัลใหม่
+        newEnemyScript.isDead = false; // รีเซ็ตค่า isDead
 
-        // กำหนดดาเมจของศัตรูใหม่เท่ากับตัวแรก
-        newEnemyScript.damage = damage; // ดาเมจเท่ากับตัวแรก
+        // เปิดใช้งาน BoxCollider2D ถ้ามันถูกปิดอยู่
+        BoxCollider2D collider = newEnemy.GetComponent<BoxCollider2D>();
+        if (collider != null)
+        {
+            collider.enabled = true; // เปิด Collider
+            Debug.Log("BoxCollider2D enabled for new enemy.");
+        }
+        else
+        {
+            Debug.LogWarning("No BoxCollider2D found on new enemy!");
+        }
+
+        // เปิดใช้งาน Script Enemy ถ้ามันถูกปิดอยู่
+        newEnemyScript.enabled = true;
+        Debug.Log("Enemy script enabled for new enemy.");
+
+        // สุ่มสีใหม่ (ยกเว้นสีแดง)
+        Color randomColor = new Color(Random.value, Random.value, Random.value);
+        while (randomColor == Color.red)
+        {
+            randomColor = new Color(Random.value, Random.value, Random.value);
+        }
+
+        // กำหนดสีใหม่ให้ศัตรู
+        SpriteRenderer newEnemySprite = newEnemy.GetComponent<SpriteRenderer>();
+        newEnemySprite.color = randomColor;
+
+        Debug.Log("New enemy fully ready with new color and increased stats.");
     }
 
     private void OnMouseDown()
