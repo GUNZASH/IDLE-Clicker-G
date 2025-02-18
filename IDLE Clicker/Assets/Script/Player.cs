@@ -8,13 +8,15 @@ public class Player : MonoBehaviour
     public static Player Instance;
     public int playerMoney = 0;
     public TextMeshProUGUI moneyText;
-    public int attackPower = 10; // พลังโจมตีเริ่มต้น
-    public int maxHP = 100; // พลังชีวิตเริ่มต้น
+    public int attackPower = 10;
+    public int maxHP = 100;
     public int currentHP;
-    public int criticalChance = 0; // เริ่มต้นที่ 0%
-    private int criticalDamageMultiplier = 2; // ดาเมจคริติคอลเป็น 2 เท่าของปกติ
-    public float autoAttackInterval = 1f; // เวลาระหว่างการโจมตีอัตโนมัติ
-    public int moneyPerClick = 1; // จำนวนเงินที่ได้จากการคลิก
+    public int criticalChance = 0;
+    private int criticalDamageMultiplier = 2;
+    public float autoAttackInterval = 1f;
+    public int moneyPerClick = 1;
+
+    private bool isFading = false;  // ตัวแปรสำหรับเช็คสถานะการ Fade
 
     private void Awake()
     {
@@ -26,24 +28,22 @@ public class Player : MonoBehaviour
         {
             Destroy(gameObject);
         }
-        currentHP = maxHP;  // กำหนดค่า HP เริ่มต้น
+        currentHP = maxHP;
     }
 
     private void Start()
     {
-        StartAutoAttack(); // เริ่มการโจมตีอัตโนมัติเมื่อเริ่มเกม
+        StartAutoAttack();
     }
 
-    // ฟังก์ชันเริ่มการโจมตีอัตโนมัติ
     private void StartAutoAttack()
     {
         InvokeRepeating("AutoAttackEnemy", 0f, autoAttackInterval); // เรียกฟังก์ชัน AutoAttackEnemy ทุกๆ interval
     }
 
-    // ฟังก์ชันโจมตีอัตโนมัติ
     private void AutoAttackEnemy()
     {
-        // หา Enemy ที่อยู่ใกล้ๆ
+        if (isFading) return;  // ถ้ากำลัง Fade อยู่ จะไม่ทำการโจมตีอัตโนมัติ
         Enemy closestEnemy = FindClosestEnemy();
         if (closestEnemy != null)
         {
@@ -52,7 +52,6 @@ public class Player : MonoBehaviour
         }
     }
 
-    // ฟังก์ชันหาศัตรูที่ใกล้ที่สุด
     private Enemy FindClosestEnemy()
     {
         Enemy closestEnemy = null;
@@ -69,68 +68,60 @@ public class Player : MonoBehaviour
         return closestEnemy;
     }
 
-    // ฟังก์ชันเพิ่มเงินจากการโจมตีอัตโนมัติ
     private void AddMoneyFromAutoAttack()
     {
-        playerMoney += moneyPerClick;  // เพิ่มเงินจากการโจมตีอัตโนมัติ
-        UpdateMoneyText();  // อัปเดต UI
+        playerMoney += moneyPerClick;
+        UpdateMoneyText();
     }
 
-    // ฟังก์ชันเพิ่มเงิน
     public void AddMoney(int amount)
     {
         playerMoney += amount;
         UpdateMoneyText();
     }
 
-    // ฟังก์ชันใช้เงิน
     public bool SpendMoney(int amount)
     {
         if (playerMoney >= amount)
         {
             playerMoney -= amount;
             UpdateMoneyText();
-            return true;  // ใช้เงินได้
+            return true;
         }
         else
         {
-            return false;  // ถ้าเงินไม่พอ
+            return false;
         }
     }
 
-    // อัปเดต UI ของเงิน
     private void UpdateMoneyText()
     {
         moneyText.text = "Money: " + playerMoney.ToString();
     }
 
-    // ฟังก์ชันเพิ่มเงินจากการคลิก
     public void EarnMoneyFromClick()
     {
-        playerMoney += moneyPerClick;  // เพิ่มเงินจากการคลิก
+        playerMoney += moneyPerClick;
         UpdateMoneyText();
     }
 
-    // ฟังก์ชันอัปเกรดพลังโจมตี
     public void UpgradeAttackPower()
     {
         attackPower += 5;
     }
 
-    // ฟังก์ชันอัปเกรด HP
     public void UpgradeHP()
     {
         maxHP += 10;
         currentHP = maxHP;
     }
 
-    // ฟังก์ชันอัปเกรด Critical Chance
     public void UpgradeCriticalChance()
     {
-        if (criticalChance < 100) // ถ้ายังไม่ถึง 100%
+        if (criticalChance < 100)
         {
             criticalChance += 5;
-            UIController.Instance.UpdateUpgradeCostText(); // เรียกฟังก์ชันใน UIController เพื่ออัปเดต UI
+            UIController.Instance.UpdateUpgradeCostText();
         }
         else
         {
@@ -138,18 +129,16 @@ public class Player : MonoBehaviour
         }
     }
 
-    // ฟังก์ชันคำนวณดาเมจ (รวม Critical)
     public int CalculateDamage()
     {
         int damage = attackPower;
         if (Random.Range(0, 100) < criticalChance)  // เช็คว่าเกิด Critical Hit หรือไม่
         {
-            damage *= criticalDamageMultiplier; // ดาเมจ * 2 ถ้า Critical
+            damage *= criticalDamageMultiplier;
         }
         return damage;
     }
 
-    // ฟังก์ชันรับความเสียหายจาก Enemy
     public void TakeDamage(int amount)
     {
         currentHP -= amount;
@@ -157,28 +146,61 @@ public class Player : MonoBehaviour
         if (currentHP <= 0)
         {
             currentHP = 0;
-            Die();  // ถ้า HP เหลือ 0 จะตาย
+            Die();
         }
     }
 
-    // ฟังก์ชันโจมตีศัตรู
     public void AttackEnemy(Enemy enemy)
     {
-        int damage = attackPower;  // ใช้ค่า attackPower จาก Player
-        if (Random.value <= criticalChance / 100f)  // เช็คว่าเป็นการโจมตีคริติคอลไหม
+        if (isFading) return;  // ถ้ากำลัง Fade อยู่ จะไม่ทำการโจมตี
+        int damage = attackPower;
+        if (Random.value <= criticalChance / 100f)
         {
-            damage *= 2;  // ดาเมจคริติคอล
+            damage *= 2;
             Debug.Log("Critical Hit!");
         }
-        enemy.TakeDamage(damage);  // ส่งดาเมจไปยังศัตรู
+        enemy.TakeDamage(damage);
         Debug.Log("Player attacks Enemy with " + damage + " damage!");
     }
 
-    // ฟังก์ชันตายเมื่อ HP หมด
     private void Die()
     {
-        // การจัดการเมื่อ Player ตาย
         Debug.Log("Player is dead");
-        // สามารถเพิ่มโค้ดให้ Player ตายที่นี่ เช่น เกมโอเวอร์
+    }
+
+    // ฟังก์ชันเริ่มการ Fade (จาก FadeIn และ FadeOut)
+    public void StartFade()
+    {
+        isFading = true;
+    }
+
+    public void EndFade()
+    {
+        isFading = false;
+    }
+
+    // ฟังก์ชันโจมตีแบบคลิก
+    private void Update()
+    {
+        if (!isFading && Input.GetMouseButtonDown(0))// ตรวจสอบว่าผู้เล่นไม่กำลัง Fade อยู่ และคลิกที่ศัตรู
+        {
+            AttackOnClick();
+        }
+    }
+
+    // ฟังก์ชันที่จะให้ผู้เล่นโจมตีเมื่อคลิก
+    private void AttackOnClick()
+    {
+        if (isFading) return;  // ถ้ากำลัง Fade อยู่จะไม่โจมตี
+        RaycastHit2D hit = Physics2D.Raycast(Camera.main.ScreenToWorldPoint(Input.mousePosition), Vector2.zero);
+
+        if (hit.collider != null && hit.collider.CompareTag("Enemy"))  // ถ้าคลิกโดนศัตรู
+        {
+            Enemy enemy = hit.collider.GetComponent<Enemy>();
+            if (enemy != null)
+            {
+                AttackEnemy(enemy);  // ทำการโจมตีศัตรูที่ถูกคลิก
+            }
+        }
     }
 }

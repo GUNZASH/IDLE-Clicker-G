@@ -10,29 +10,23 @@ public class Enemy : MonoBehaviour
     public int damage = 10;
 
     public Image healthBar;
-    public Color hitColor = new Color(1, 0, 0, 0.5f);
-    private Color originalColor;
     private SpriteRenderer spriteRenderer;
 
     private bool isDead = false;
-    private Vector3 spawnPosition;  // เก็บตำแหน่งที่ศัตรูเกิด
+    private bool isFading = false;
+
+    // ประกาศ event สำหรับการตายของศัตรู
+    public event System.Action onDeath;
+
+    private void Awake()
+    {
+        spriteRenderer = GetComponent<SpriteRenderer>();
+    }
 
     private void Start()
     {
-        spawnPosition = transform.position;  // เก็บตำแหน่งเดิมของศัตรู
         currentHealth = maxHealth;
-        spriteRenderer = GetComponent<SpriteRenderer>();
-        originalColor = spriteRenderer.color;
         StartCoroutine(AutoAttackPlayer());
-    }
-
-    private void OnMouseDown()
-    {
-        if (!UIController.Instance.IsUpgradePanelOpen()) // ถ้า Panel เปิดอยู่จะไม่สามารถคลิกได้
-        {
-            Player.Instance.AttackEnemy(this);  // เรียกการโจมตีจาก Player
-            Player.Instance.EarnMoneyFromClick(); // เพิ่มเงินจากการคลิก
-        }
     }
 
     private IEnumerator AutoAttackPlayer()
@@ -40,7 +34,10 @@ public class Enemy : MonoBehaviour
         while (!isDead)
         {
             yield return new WaitForSeconds(attackInterval);
-            AttackPlayer(); // ทำการโจมตีไปยัง Player
+            if (!isFading)  // ตรวจสอบว่าไม่ได้อยู่ในระหว่างการ Fade
+            {
+                AttackPlayer();
+            }
         }
     }
 
@@ -50,7 +47,12 @@ public class Enemy : MonoBehaviour
 
         currentHealth -= amount;
         UpdateHealthBar();
-        StartCoroutine(FlashRed());
+
+        // เริ่มทำ Flash Red แต่เฉพาะตอนที่ไม่กำลังทำ Fade
+        if (!isFading)
+        {
+            FlashRed.Instance.StartFlash(spriteRenderer); // เรียกใช้งาน FlashRed
+        }
 
         if (currentHealth <= 0)
         {
@@ -58,40 +60,82 @@ public class Enemy : MonoBehaviour
         }
     }
 
-    private IEnumerator FlashRed()
-    {
-        spriteRenderer.color = hitColor;
-        yield return new WaitForSeconds(0.2f);
-        spriteRenderer.color = originalColor;
-    }
-
     private void UpdateHealthBar()
     {
-        healthBar.fillAmount = (float)currentHealth / maxHealth;
+        if (healthBar != null)
+        {
+            healthBar.fillAmount = (float)currentHealth / maxHealth;
+        }
     }
 
     private void Die()
     {
         isDead = true;
-        // มอบเงิน 10 หน่วยให้ผู้เล่นเมื่อศัตรูตาย
         Player.Instance.AddMoney(10);
-        // เรียกฟังก์ชัน Respawn เพื่อเกิดใหม่
-        Respawn();
+
+        // เรียก event เมื่อศัตรูตาย
+        onDeath?.Invoke();
+
+        StartCoroutine(FadeOutAndDestroy());
     }
 
-    private void Respawn()
+    private IEnumerator FadeOutAndDestroy()
     {
-        // สร้างศัตรูใหม่ในตำแหน่งเดิม
-        transform.position = spawnPosition;
-        currentHealth = maxHealth;
-        isDead = false;
-        UpdateHealthBar();  // รีเซ็ต HealthBar
-        StartCoroutine(AutoAttackPlayer()); // เริ่มโจมตีอัตโนมัติอีกครั้ง
+        isFading = true;
+        float fadeDuration = 1.5f;
+        float timer = 0f;
+        Color color = spriteRenderer.color;
+
+        // เริ่ม Fade out
+        while (timer < fadeDuration)
+        {
+            timer += Time.deltaTime;
+            float alpha = Mathf.Lerp(1f, 0f, timer / fadeDuration);
+            spriteRenderer.color = new Color(color.r, color.g, color.b, alpha);
+            yield return null;
+        }
+
+        Destroy(gameObject);  // หลังจาก Fade เสร็จ
+        isFading = false;  // เปิดใช้งานการโจมตีใหม่
+    }
+
+    public void FadeIn()
+    {
+        if (isFading) return;
+
+        StartCoroutine(FadeInEnemy());
+    }
+
+    private IEnumerator FadeInEnemy()
+    {
+        isFading = true;
+        float fadeDuration = 1.5f;
+        float timer = 0f;
+
+        while (timer < fadeDuration)
+        {
+            timer += Time.deltaTime;
+            float alpha = Mathf.Lerp(0f, 1f, timer / fadeDuration);
+            spriteRenderer.color = new Color(spriteRenderer.color.r, spriteRenderer.color.g, spriteRenderer.color.b, alpha);
+            yield return null;
+        }
+
+        spriteRenderer.color = new Color(spriteRenderer.color.r, spriteRenderer.color.g, spriteRenderer.color.b, 1);
+        isFading = false;  // การ Fade เสร็จสิ้นแล้ว ให้สามารถโจมตีได้
     }
 
     public void AttackPlayer()
     {
+        if (isFading) return;  // ถ้ากำลัง Fade อยู่ไม่ให้โจมตี
+
         int damage = Player.Instance.CalculateDamage();
         Player.Instance.TakeDamage(damage);
+    }
+
+    public void EndFade()
+    {
+        isFading = false;
+        // หลังจาก Fade เสร็จ จะทำให้ศัตรูสามารถโจมตีได้ตามปกติ
+        StartCoroutine(AutoAttackPlayer());
     }
 }
