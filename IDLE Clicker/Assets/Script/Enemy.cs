@@ -14,9 +14,13 @@ public class Enemy : MonoBehaviour
 
     private bool isDead = false;
     private bool isFading = false;
+    private bool canBeAttacked = true; // 🔴 ตัวแปรควบคุมการโจมตี
 
     // ประกาศ event สำหรับการตายของศัตรู
     public event System.Action onDeath;
+
+    public bool IsDead => isDead; // ✅ ให้ Player เช็คได้
+    public bool IsFading => isFading; // ✅ ให้ Player เช็คได้
 
     private void Awake()
     {
@@ -43,7 +47,7 @@ public class Enemy : MonoBehaviour
 
     public void TakeDamage(int amount)
     {
-        if (isDead) return;
+        if (isDead || !canBeAttacked) return; // 🔴 หยุดการโจมตีถ้า HP หมด หรือกำลัง Fade Out
 
         currentHealth -= amount;
         UpdateHealthBar();
@@ -71,6 +75,7 @@ public class Enemy : MonoBehaviour
     private void Die()
     {
         isDead = true;
+        canBeAttacked = false; // 🔴 ห้ามโจมตีหลังจากตายแล้ว
         Player.Instance.AddMoney(10);
 
         // เรียก event เมื่อศัตรูตาย
@@ -109,6 +114,7 @@ public class Enemy : MonoBehaviour
     private IEnumerator FadeInEnemy()
     {
         isFading = true;
+        canBeAttacked = false; // 🔴 ห้ามโจมตีก่อน Fade In เสร็จ
         float fadeDuration = 1.5f;
         float timer = 0f;
 
@@ -121,7 +127,8 @@ public class Enemy : MonoBehaviour
         }
 
         spriteRenderer.color = new Color(spriteRenderer.color.r, spriteRenderer.color.g, spriteRenderer.color.b, 1);
-        isFading = false;  // การ Fade เสร็จสิ้นแล้ว ให้สามารถโจมตีได้
+        isFading = false;
+        canBeAttacked = true; // ✅ ศัตรูโจมตีได้หลัง Fade In เสร็จ
     }
 
     public void AttackPlayer()
@@ -135,7 +142,15 @@ public class Enemy : MonoBehaviour
     public void EndFade()
     {
         isFading = false;
-        // หลังจาก Fade เสร็จ จะทำให้ศัตรูสามารถโจมตีได้ตามปกติ
+        canBeAttacked = true; // ✅ เปิดให้ศัตรูถูกโจมตีได้อีกครั้ง
         StartCoroutine(AutoAttackPlayer());
     }
+
+    // ฟังก์ชันรีเซ็ต HP ของศัตรู
+    public void ResetHealth()
+    {
+        currentHealth = maxHealth;
+        UpdateHealthBar();
+    }
+
 }

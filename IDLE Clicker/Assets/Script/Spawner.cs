@@ -10,7 +10,7 @@ public class Spawner : MonoBehaviour
     public GameObject[] enemyPrefabs; // ศัตรูที่ต้องการ Spawn
 
     private int currentSpawnIndex = 0; // ลำดับของศัตรูที่เกิด
-    private GameObject currentEnemy; // ศัตรูปัจจุบัน
+    public GameObject currentEnemy; // ศัตรูปัจจุบัน
 
     private void Awake()
     {
@@ -22,7 +22,7 @@ public class Spawner : MonoBehaviour
         StartCoroutine(SpawnEnemies());
     }
 
-    private IEnumerator SpawnEnemies()
+    public IEnumerator SpawnEnemies()
     {
         while (currentSpawnIndex < enemyPrefabs.Length)
         {

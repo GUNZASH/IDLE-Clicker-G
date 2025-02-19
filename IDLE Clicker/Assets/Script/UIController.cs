@@ -26,6 +26,15 @@ public class UIController : MonoBehaviour
 
     public static UIController Instance;
 
+    public GameObject skillButtons;  // ตัวแปรเก็บกลุ่มปุ่มสกิล
+    public GameObject playerHealthBar; // ตัวแปรเก็บ UI หลอดเลือด
+
+    // ประกาศตัวแปรราคาการอัปเกรด
+    private int attackUpgradeCost = 150;
+    private int moneyUpgradeCost = 50;
+    private int hpUpgradeCost = 150;
+    private int criticalUpgradeCost = 300;
+
     private void Awake()
     {
         if (Instance == null)
@@ -46,6 +55,8 @@ public class UIController : MonoBehaviour
         upgradeMoneyButton.onClick.AddListener(UpgradeMoney);
         upgradeHPButton.onClick.AddListener(UpgradeHP);
         upgradeCriticalButton.onClick.AddListener(UpgradeCriticalChance);
+
+        UpdateUpgradeCostText();
     }
 
     private void ToggleUpgradePanel()
@@ -53,26 +64,34 @@ public class UIController : MonoBehaviour
         isPanelOpen = !isPanelOpen;
         upgradePanel.SetActive(isPanelOpen);
 
+        RectTransform panelTransform = upgradePanel.GetComponent<RectTransform>();
+
         if (isPanelOpen)
         {
-            RectTransform panelTransform = upgradePanel.GetComponent<RectTransform>();
             panelTransform.anchoredPosition = new Vector2(panelTransform.anchoredPosition.x, -panelTransform.rect.height);
             panelTransform.LeanMoveLocalY(0f, 0.5f);
+
+            // 🔴 ปิดปุ่มสกิลและหลอดเลือดตอนเปิด Panel
+            skillButtons.SetActive(false);
+            playerHealthBar.SetActive(false);
         }
         else
         {
-            RectTransform panelTransform = upgradePanel.GetComponent<RectTransform>();
             panelTransform.LeanMoveLocalY(-panelTransform.rect.height, 0.5f);
+
+            // 🟢 เปิดปุ่มสกิลและหลอดเลือดกลับมาตอนปิด Panel
+            skillButtons.SetActive(true);
+            playerHealthBar.SetActive(true);
         }
     }
 
     // ฟังก์ชันสำหรับอัปเกรดพลังโจมตี
     private void UpgradeAttackPower()
     {
-        int upgradeCost = 10 + Player.Instance.attackPower * 5;
-        if (Player.Instance.SpendMoney(upgradeCost))
+        if (Player.Instance.SpendMoney(attackUpgradeCost))
         {
             Player.Instance.UpgradeAttackPower();
+            attackUpgradeCost += 100;  // เพิ่มราคาหลังอัปเกรด
             UpdateUpgradeCostText();
         }
     }
@@ -80,11 +99,11 @@ public class UIController : MonoBehaviour
     // ฟังก์ชันสำหรับอัปเกรดเงิน
     private void UpgradeMoney()
     {
-        int upgradeCost = 10 + moneyPerClick * 5;
-        if (Player.Instance.SpendMoney(upgradeCost))
+        if (Player.Instance.SpendMoney(moneyUpgradeCost))
         {
             moneyPerClick += 1;
-            Player.Instance.moneyPerClick = moneyPerClick;  // แก้ไขจำนวนเงินจากการคลิกโดยตรง
+            Player.Instance.moneyPerClick = moneyPerClick;
+            moneyUpgradeCost += 50;  // เพิ่มราคาหลังอัปเกรด
             UpdateUpgradeCostText();
         }
     }
@@ -92,10 +111,10 @@ public class UIController : MonoBehaviour
     // ฟังก์ชันสำหรับอัปเกรด HP
     private void UpgradeHP()
     {
-        int upgradeCost = 20 + Player.Instance.maxHP * 3;
-        if (Player.Instance.SpendMoney(upgradeCost))
+        if (Player.Instance.SpendMoney(hpUpgradeCost))
         {
             Player.Instance.UpgradeHP();
+            hpUpgradeCost += 100;  // เพิ่มราคาหลังอัปเกรด
             UpdateUpgradeCostText();
         }
     }
@@ -103,10 +122,10 @@ public class UIController : MonoBehaviour
     // ฟังก์ชันสำหรับอัปเกรด Critical Chance
     private void UpgradeCriticalChance()
     {
-        int upgradeCost = 15 + Player.Instance.criticalChance * 10;
-        if (Player.Instance.SpendMoney(upgradeCost))
+        if (Player.Instance.SpendMoney(criticalUpgradeCost))
         {
             Player.Instance.UpgradeCriticalChance();
+            criticalUpgradeCost += 350;  // เพิ่มราคาหลังอัปเกรด
             UpdateUpgradeCostText();
         }
     }
@@ -114,24 +133,19 @@ public class UIController : MonoBehaviour
     // ฟังก์ชันอัปเดตราคาอัปเกรด (แยกให้แสดงในแต่ละช่อง)
     public void UpdateUpgradeCostText()
     {
-        int attackUpgradeCost = 10 + Player.Instance.attackPower * 5;
-        int moneyUpgradeCost = 10 + moneyPerClick * 5;
-        int hpUpgradeCost = 20 + Player.Instance.maxHP * 3;
-        int criticalUpgradeCost = 15 + Player.Instance.criticalChance * 10;
-
         // อัปเดตราคาแต่ละประเภทให้แสดงใน Text ที่แยกกัน
-        attackUpgradeCostText.text = $"Attack Upgrade: {attackUpgradeCost}";
-        moneyUpgradeCostText.text = $"Money Upgrade: {moneyUpgradeCost}";
-        hpUpgradeCostText.text = $"HP Upgrade: {hpUpgradeCost}";
+        attackUpgradeCostText.text = $"Cost: {attackUpgradeCost}";
+        moneyUpgradeCostText.text = $"Cost: {moneyUpgradeCost}";
+        hpUpgradeCostText.text = $"Cost: {hpUpgradeCost}";
 
         // เพิ่มเงื่อนไขที่ไม่ให้เพิ่มราคาถ้าคริติคอลถึง 100%
         if (Player.Instance.criticalChance >= 100)
         {
-            criticalUpgradeCostText.text = "Critical Upgrade: MAXED";  // แสดงข้อความว่าเต็ม
+            criticalUpgradeCostText.text = "MAXED";  // แสดงข้อความว่าเต็ม
         }
         else
         {
-            criticalUpgradeCostText.text = $"Critical Upgrade: {criticalUpgradeCost}";
+            criticalUpgradeCostText.text = $"Cost: {criticalUpgradeCost}";
         }
     }
 

@@ -16,7 +16,18 @@ public class Player : MonoBehaviour
     public float autoAttackInterval = 1f;
     public int moneyPerClick = 1;
 
-    private bool isFading = false;  // ตัวแปรสำหรับเช็คสถานะการ Fade
+    private bool isFading = false;
+
+
+    // คูลดาวน์ของสกิล
+    public float skill1Cooldown = 40f;
+    public float skill2Cooldown = 30f;
+    public float skill3Cooldown = 20f; // ตั้งค่าเริ่มต้นได้
+
+    private bool skill1Ready = true;
+    private bool skill2Ready = true;
+    private bool skill3Ready = true;
+    private bool isReflectingDamage = false;
 
     private void Awake()
     {
@@ -29,6 +40,7 @@ public class Player : MonoBehaviour
             Destroy(gameObject);
         }
         currentHP = maxHP;
+        moneyPerClick = 1;
     }
 
     private void Start()
@@ -38,17 +50,16 @@ public class Player : MonoBehaviour
 
     private void StartAutoAttack()
     {
-        InvokeRepeating("AutoAttackEnemy", 0f, autoAttackInterval); // เรียกฟังก์ชัน AutoAttackEnemy ทุกๆ interval
+        InvokeRepeating("AutoAttackEnemy", 0f, autoAttackInterval);
     }
 
     private void AutoAttackEnemy()
     {
-        if (isFading) return;  // ถ้ากำลัง Fade อยู่ จะไม่ทำการโจมตีอัตโนมัติ
+        if (isFading) return;
         Enemy closestEnemy = FindClosestEnemy();
         if (closestEnemy != null)
         {
-            AttackEnemy(closestEnemy);  // โจมตีศัตรูที่ใกล้ที่สุด
-            AddMoneyFromAutoAttack();  // เพิ่มเงินจากการโจมตีอัตโนมัติ
+            AttackEnemy(closestEnemy);
         }
     }
 
@@ -68,7 +79,7 @@ public class Player : MonoBehaviour
         return closestEnemy;
     }
 
-    private void AddMoneyFromAutoAttack()
+    private void AddMoneyFromClick()
     {
         playerMoney += moneyPerClick;
         UpdateMoneyText();
@@ -96,7 +107,7 @@ public class Player : MonoBehaviour
 
     private void UpdateMoneyText()
     {
-        moneyText.text = "Money: " + playerMoney.ToString();
+        moneyText.text = " " + playerMoney.ToString();
     }
 
     public void EarnMoneyFromClick()
@@ -132,7 +143,7 @@ public class Player : MonoBehaviour
     public int CalculateDamage()
     {
         int damage = attackPower;
-        if (Random.Range(0, 100) < criticalChance)  // เช็คว่าเกิด Critical Hit หรือไม่
+        if (Random.Range(0, 100) < criticalChance)
         {
             damage *= criticalDamageMultiplier;
         }
@@ -141,6 +152,16 @@ public class Player : MonoBehaviour
 
     public void TakeDamage(int amount)
     {
+        if (isReflectingDamage)
+        {
+            Enemy closestEnemy = FindClosestEnemy();
+            if (closestEnemy != null)
+            {
+                closestEnemy.TakeDamage(amount);
+                Debug.Log("Reflected " + amount + " damage back to the enemy!");
+            }
+        }
+
         currentHP -= amount;
 
         if (currentHP <= 0)
@@ -152,7 +173,7 @@ public class Player : MonoBehaviour
 
     public void AttackEnemy(Enemy enemy)
     {
-        if (isFading) return;  // ถ้ากำลัง Fade อยู่ จะไม่ทำการโจมตี
+        if (isFading) return;
         int damage = attackPower;
         if (Random.value <= criticalChance / 100f)
         {
@@ -161,14 +182,16 @@ public class Player : MonoBehaviour
         }
         enemy.TakeDamage(damage);
         Debug.Log("Player attacks Enemy with " + damage + " damage!");
+
+        AddMoneyFromClick();
     }
 
     private void Die()
     {
         Debug.Log("Player is dead");
+        PlayerDeath.Instance.HandlePlayerDeath();
     }
 
-    // ฟังก์ชันเริ่มการ Fade (จาก FadeIn และ FadeOut)
     public void StartFade()
     {
         isFading = true;
@@ -179,28 +202,91 @@ public class Player : MonoBehaviour
         isFading = false;
     }
 
-    // ฟังก์ชันโจมตีแบบคลิก
     private void Update()
     {
-        if (!isFading && Input.GetMouseButtonDown(0))// ตรวจสอบว่าผู้เล่นไม่กำลัง Fade อยู่ และคลิกที่ศัตรู
+        if (!isFading && Input.GetMouseButtonDown(0))
         {
             AttackOnClick();
         }
     }
 
-    // ฟังก์ชันที่จะให้ผู้เล่นโจมตีเมื่อคลิก
     private void AttackOnClick()
     {
-        if (isFading) return;  // ถ้ากำลัง Fade อยู่จะไม่โจมตี
+        if (isFading || UIController.Instance.IsUpgradePanelOpen()) return; // เช็คว่าเปิด Panel หรือยัง
+
         RaycastHit2D hit = Physics2D.Raycast(Camera.main.ScreenToWorldPoint(Input.mousePosition), Vector2.zero);
 
-        if (hit.collider != null && hit.collider.CompareTag("Enemy"))  // ถ้าคลิกโดนศัตรู
+        if (hit.collider != null && hit.collider.CompareTag("Enemy"))
         {
             Enemy enemy = hit.collider.GetComponent<Enemy>();
             if (enemy != null)
             {
-                AttackEnemy(enemy);  // ทำการโจมตีศัตรูที่ถูกคลิก
+                AttackEnemy(enemy);
             }
         }
+    }
+
+    // --------------- ระบบสกิล -----------------
+
+    public void UseSkill1() // สกิลโจมตีแรง 5 เท่า
+    {
+        if (!skill1Ready) return;
+
+        Enemy closestEnemy = FindClosestEnemy();
+        if (closestEnemy != null)
+        {
+            int damage = attackPower * 5;
+            closestEnemy.TakeDamage(damage);
+            Debug.Log("Skill 1 activated! Dealt " + damage + " damage.");
+            StartCoroutine(SkillCooldown(1, skill1Cooldown));
+        }
+    }
+
+    public void UseSkill2() // สกิลฮีล 20% ของ Max HP
+    {
+        if (!skill2Ready) return;
+
+        int healAmount = Mathf.RoundToInt(maxHP * 0.2f);
+        currentHP += healAmount;
+        if (currentHP > maxHP) currentHP = maxHP;
+
+        Debug.Log("Skill 2 activated! Healed " + healAmount + " HP.");
+        StartCoroutine(SkillCooldown(2, skill2Cooldown));
+    }
+
+    public void UseSkill3() // สกิลสะท้อนดาเมจ
+    {
+        if (!skill3Ready) return;
+
+        isReflectingDamage = true;
+        Debug.Log("Skill 3 activated! Reflecting damage for 5 seconds.");
+        StartCoroutine(SkillCooldown(3, skill3Cooldown));
+        StartCoroutine(DisableReflect(5f)); // สะท้อน 5 วิ
+    }
+
+    private IEnumerator SkillCooldown(int skillNumber, float cooldownTime)
+    {
+        switch (skillNumber)
+        {
+            case 1: skill1Ready = false; break;
+            case 2: skill2Ready = false; break;
+            case 3: skill3Ready = false; break;
+        }
+
+        yield return new WaitForSeconds(cooldownTime);
+
+        switch (skillNumber)
+        {
+            case 1: skill1Ready = true; break;
+            case 2: skill2Ready = true; break;
+            case 3: skill3Ready = true; break;
+        }
+    }
+
+    private IEnumerator DisableReflect(float duration)
+    {
+        yield return new WaitForSeconds(duration);
+        isReflectingDamage = false;
+        Debug.Log("Reflection effect ended.");
     }
 }
