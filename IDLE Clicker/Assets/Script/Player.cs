@@ -24,10 +24,19 @@ public class Player : MonoBehaviour
     public float skill2Cooldown = 30f;
     public float skill3Cooldown = 20f; // ตั้งค่าเริ่มต้นได้
 
-    private bool skill1Ready = true;
-    private bool skill2Ready = true;
-    private bool skill3Ready = true;
+    public bool skill1Ready = true;
+    public bool skill2Ready = true;
+    public bool skill3Ready = true;
     private bool isReflectingDamage = false;
+
+    public bool IsSkill1Ready => skill1Ready;
+    public bool IsSkill2Ready => skill2Ready;
+    public bool IsSkill3Ready => skill3Ready;
+
+    public SkillCooldownUI skillCooldownUI;
+
+    private Animator animator;
+
 
     private void Awake()
     {
@@ -41,6 +50,8 @@ public class Player : MonoBehaviour
         }
         currentHP = maxHP;
         moneyPerClick = 1;
+
+        animator = GetComponent<Animator>();
     }
 
     private void Start()
@@ -184,6 +195,9 @@ public class Player : MonoBehaviour
         Debug.Log("Player attacks Enemy with " + damage + " damage!");
 
         AddMoneyFromClick();
+
+        AudioManager.Instance.PlayAttackSound();
+        animator.Play("ATTACK", 0, 0f);
     }
 
     private void Die()
@@ -228,6 +242,7 @@ public class Player : MonoBehaviour
 
     // --------------- ระบบสกิล -----------------
 
+
     public void UseSkill1() // สกิลโจมตีแรง 5 เท่า
     {
         if (!skill1Ready) return;
@@ -239,6 +254,7 @@ public class Player : MonoBehaviour
             closestEnemy.TakeDamage(damage);
             Debug.Log("Skill 1 activated! Dealt " + damage + " damage.");
             StartCoroutine(SkillCooldown(1, skill1Cooldown));
+            skillCooldownUI.StartSkillCooldown(1, skill1Cooldown);
         }
     }
 
@@ -252,6 +268,7 @@ public class Player : MonoBehaviour
 
         Debug.Log("Skill 2 activated! Healed " + healAmount + " HP.");
         StartCoroutine(SkillCooldown(2, skill2Cooldown));
+        skillCooldownUI.StartSkillCooldown(2, skill2Cooldown);
     }
 
     public void UseSkill3() // สกิลสะท้อนดาเมจ
@@ -262,6 +279,7 @@ public class Player : MonoBehaviour
         Debug.Log("Skill 3 activated! Reflecting damage for 5 seconds.");
         StartCoroutine(SkillCooldown(3, skill3Cooldown));
         StartCoroutine(DisableReflect(5f)); // สะท้อน 5 วิ
+        skillCooldownUI.StartSkillCooldown(3, skill3Cooldown);
     }
 
     private IEnumerator SkillCooldown(int skillNumber, float cooldownTime)

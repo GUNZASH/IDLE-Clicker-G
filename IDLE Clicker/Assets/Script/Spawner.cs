@@ -19,6 +19,15 @@ public class Spawner : MonoBehaviour
 
     private void Start()
     {
+        StartCoroutine(WaitForCameraAndSpawn()); // ✅ เพิ่มเงื่อนไขให้รอจนกว่ากล้องพร้อม
+    }
+
+    private IEnumerator WaitForCameraAndSpawn()
+    {
+        // ✅ รอจนกว่ากล้องจะเลื่อนเสร็จ
+        yield return new WaitUntil(() => CameraController.isCameraReady);
+
+        // ✅ เริ่ม Spawn ศัตรูหลังจากกล้องพร้อม
         StartCoroutine(SpawnEnemies());
     }
 
@@ -52,18 +61,18 @@ public class Spawner : MonoBehaviour
         int spawnPointIndex = currentSpawnIndex % spawnPoints.Length;
         Transform spawnPoint = spawnPoints[spawnPointIndex];
 
+        Debug.Log($"Spawning Enemy: {enemyPrefabs[currentSpawnIndex].name} at {spawnPoint.position} (Index: {currentSpawnIndex})"); // ✅ ตรวจสอบการ Spawn
+
         currentEnemy = Instantiate(enemyPrefabs[currentSpawnIndex], spawnPoint.position, Quaternion.identity);
 
-        // ตั้งค่าให้ SpriteRenderer ไม่โปร่งใส (หรือใช้สีจาก Prefab เอง)
         SpriteRenderer enemySprite = currentEnemy.GetComponent<SpriteRenderer>();
-        Color originalColor = enemySprite.color;  // เก็บสีเดิมจาก Prefab
-        enemySprite.color = new Color(originalColor.r, originalColor.g, originalColor.b, 0); // ตั้งค่า Alpha ให้เป็น 0
+        Color originalColor = enemySprite.color;
+        enemySprite.color = new Color(originalColor.r, originalColor.g, originalColor.b, 0);
 
-        // ตั้งค่าการทำงานเมื่อศัตรูตาย
         Enemy enemyScript = currentEnemy.GetComponent<Enemy>();
-        enemyScript.onDeath += OnEnemyDeath; // สมัครตัวเลือกเมื่อศัตรูตาย
+        enemyScript.onDeath += OnEnemyDeath;
 
-        currentSpawnIndex++;
+        currentSpawnIndex++; // ✅ เพิ่มค่าตามลำดับ
     }
 
     private IEnumerator FadeInEnemy()

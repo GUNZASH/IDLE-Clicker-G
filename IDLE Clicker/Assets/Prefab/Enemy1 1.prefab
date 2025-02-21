@@ -263,7 +263,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 13df52e9a725b3246aa71f72a4777fdf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  hitColor: {r: 1, g: 0, b: 0, a: 0.5}
+  hitColor: {r: 1, g: 0, b: 0, a: 1}
 --- !u!1001 &1592152948799462217
 PrefabInstance:
   m_ObjectHideFlags: 0

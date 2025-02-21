@@ -11,20 +11,21 @@ public class Enemy : MonoBehaviour
 
     public Image healthBar;
     private SpriteRenderer spriteRenderer;
+    private Animator animator; // ✅ เพิ่ม Animator
 
     private bool isDead = false;
     private bool isFading = false;
     private bool canBeAttacked = true; // 🔴 ตัวแปรควบคุมการโจมตี
 
-    // ประกาศ event สำหรับการตายของศัตรู
     public event System.Action onDeath;
 
-    public bool IsDead => isDead; // ✅ ให้ Player เช็คได้
-    public bool IsFading => isFading; // ✅ ให้ Player เช็คได้
+    public bool IsDead => isDead;
+    public bool IsFading => isFading;
 
     private void Awake()
     {
         spriteRenderer = GetComponent<SpriteRenderer>();
+        animator = GetComponent<Animator>(); // ✅ ดึง Animator มาใช้
     }
 
     private void Start()
@@ -38,24 +39,43 @@ public class Enemy : MonoBehaviour
         while (!isDead)
         {
             yield return new WaitForSeconds(attackInterval);
-            if (!isFading)  // ตรวจสอบว่าไม่ได้อยู่ในระหว่างการ Fade
+            if (!isFading)
             {
                 AttackPlayer();
             }
         }
     }
 
+    public void AttackPlayer()
+    {
+        if (isFading || isDead) return;
+
+        animator.SetBool("isAttack", true); // ✅ เปลี่ยนไป Attack Animation
+
+        StartCoroutine(DealDamageAfterAnimation());
+    }
+
+    private IEnumerator DealDamageAfterAnimation()
+    {
+        yield return new WaitForSeconds(0.5f); // รอให้อนิเมชั่นโจมตีเล่นไป 0.5 วิ
+
+        int damage = Player.Instance.CalculateDamage();
+        Player.Instance.TakeDamage(damage);
+
+        yield return new WaitForSeconds(0.5f); // รอให้อนิเมชั่นจบ
+        animator.SetBool("isAttack", false); // ✅ กลับไป Idle หลังโจมตี
+    }
+
     public void TakeDamage(int amount)
     {
-        if (isDead || !canBeAttacked) return; // 🔴 หยุดการโจมตีถ้า HP หมด หรือกำลัง Fade Out
+        if (isDead || !canBeAttacked) return;
 
         currentHealth -= amount;
         UpdateHealthBar();
 
-        // เริ่มทำ Flash Red แต่เฉพาะตอนที่ไม่กำลังทำ Fade
         if (!isFading)
         {
-            FlashRed.Instance.StartFlash(spriteRenderer); // เรียกใช้งาน FlashRed
+            FlashRed.Instance.StartFlash(spriteRenderer);
         }
 
         if (currentHealth <= 0)
@@ -74,11 +94,15 @@ public class Enemy : MonoBehaviour
 
     private void Die()
     {
+        if (isDead) return;
+
         isDead = true;
-        canBeAttacked = false; // 🔴 ห้ามโจมตีหลังจากตายแล้ว
+        canBeAttacked = false;
+
         Player.Instance.AddMoney(10);
 
-        // เรียก event เมื่อศัตรูตาย
+        animator.SetBool("isDead", true); // ✅ เปลี่ยนไปเป็น Die Animation
+
         onDeath?.Invoke();
 
         StartCoroutine(FadeOutAndDestroy());
@@ -91,7 +115,6 @@ public class Enemy : MonoBehaviour
         float timer = 0f;
         Color color = spriteRenderer.color;
 
-        // เริ่ม Fade out
         while (timer < fadeDuration)
         {
             timer += Time.deltaTime;
@@ -100,8 +123,8 @@ public class Enemy : MonoBehaviour
             yield return null;
         }
 
-        Destroy(gameObject);  // หลังจาก Fade เสร็จ
-        isFading = false;  // เปิดใช้งานการโจมตีใหม่
+        Destroy(gameObject);
+        isFading = false;
     }
 
     public void FadeIn()
@@ -114,7 +137,7 @@ public class Enemy : MonoBehaviour
     private IEnumerator FadeInEnemy()
     {
         isFading = true;
-        canBeAttacked = false; // 🔴 ห้ามโจมตีก่อน Fade In เสร็จ
+        canBeAttacked = false;
         float fadeDuration = 1.5f;
         float timer = 0f;
 
@@ -128,29 +151,19 @@ public class Enemy : MonoBehaviour
 
         spriteRenderer.color = new Color(spriteRenderer.color.r, spriteRenderer.color.g, spriteRenderer.color.b, 1);
         isFading = false;
-        canBeAttacked = true; // ✅ ศัตรูโจมตีได้หลัง Fade In เสร็จ
-    }
-
-    public void AttackPlayer()
-    {
-        if (isFading) return;  // ถ้ากำลัง Fade อยู่ไม่ให้โจมตี
-
-        int damage = Player.Instance.CalculateDamage();
-        Player.Instance.TakeDamage(damage);
+        canBeAttacked = true;
     }
 
     public void EndFade()
     {
         isFading = false;
-        canBeAttacked = true; // ✅ เปิดให้ศัตรูถูกโจมตีได้อีกครั้ง
+        canBeAttacked = true;
         StartCoroutine(AutoAttackPlayer());
     }
 
-    // ฟังก์ชันรีเซ็ต HP ของศัตรู
     public void ResetHealth()
     {
         currentHealth = maxHealth;
         UpdateHealthBar();
     }
-
 }
